@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Merge Placement Puzzle</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header: Block Blast Style (Top Left: High Score, Top Right: Settings, Bottom: Current Score) -->
+    <header class="block-blast-header">
+      <div class="header-top-row">
+        <div class="high-score-box">
+          <span class="crown-icon">👑</span>
+          <span id="best-val" class="high-score-val">0</span>
+        </div>
+        <button id="btn-settings" class="btn-settings" title="Settings" aria-label="Settings">
+          <svg class="settings-gear-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="current-score-wrapper">
+        <div id="score-val" class="current-score-val">0</div>
+      </div>
+    </header>
+
+    <!-- Board Arena (8x8 Grid) -->
+    <main class="board-wrapper">
+      <div id="game-board" class="board-container">
+        <!-- 8x8 Cells generated dynamically -->
+      </div>
+      <div id="floating-container"></div>
+    </main>
+
+    <!-- Tray Area (3 Piece Slots) -->
+    <section class="tray-section">
+      <div id="pieces-tray" class="tray-container">
+        <!-- 3 Slots generated dynamically -->
+      </div>
+    </section>
+
+    <!-- Bottom Actions: Hint & Shuffle -->
+    <footer class="bottom-actions">
+      <button id="btn-hint" class="action-btn" title="Get Move Hint">
+        <span class="action-icon">💡</span> Hint
+      </button>
+      <button id="btn-shuffle" class="action-btn" title="Shuffle Pieces">
+        <span class="action-icon">🔀</span> Shuffle
+      </button>
+    </footer>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-box settings-modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title">Settings</h2>
+        <button id="close-settings-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body settings-body">
+        <button id="btn-toggle-sound" class="settings-action-btn">
+          <span id="sound-status-icon">🔊</span>
+          <span id="sound-status-text">Sound: ON</span>
+        </button>
+        <button id="btn-modal-restart" class="settings-action-btn restart">
+          <span>🔄</span>
+          <span>New Game</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="game-over-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center;">
+      <div class="modal-header" style="justify-content: center;">
+        <h2 class="modal-title" style="color: #ef4444; font-size: 1.4rem;">No Legal Moves!</h2>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">
+          None of the pieces in your tray can legally fit on empty cells.
+        </p>
+        <div style="margin: 16px 0;">
+          <div class="stat-label">Final Score</div>
+          <div id="final-score-val" style="font-size: 2.2rem; font-weight: 800; color: var(--accent-gold);">0</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <button id="btn-gameover-restart" class="btn-primary" style="width: 100%;">Play Again 🔄</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/piece.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
