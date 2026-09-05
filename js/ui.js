@@ -25,8 +25,9 @@ class UIManager {
     this.bestAnimFrame = null;
     this.hintTimeout = null;
 
-    // Drag state
+    // Drag & Pointer state
     this.isDragging = false;
+    this.activePointerId = null;
     this.draggedPieceIndex = null;
     this.dragGhostEl = null;
     this.currentDragAnchor = { r: 0, c: 0 };
@@ -34,37 +35,55 @@ class UIManager {
     this.touchLiftY = 0;
     this.currentPlacement = null; // { startR, startC }
 
-    // Hover state for click-to-place
-    this.selectedTrayIndex = null;
-
     this.setupEventListeners();
   }
 
   setupEventListeners() {
-    // Window mousemove & touchmove for dragging
-    window.addEventListener('mousemove', (e) => this.onPointerMove(e.clientX, e.clientY));
-    window.addEventListener('mouseup', (e) => this.onPointerUp(e.clientX, e.clientY));
-
-    window.addEventListener('touchmove', (e) => {
-      if (this.isDragging && e.touches.length > 0) {
-        e.preventDefault(); // Prevent scrolling while dragging
-        this.onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+    // Window pointermove for active dragging (unified mouse & touch)
+    window.addEventListener('pointermove', (e) => {
+      if (this.activePointerId !== null && e.pointerId === this.activePointerId && this.isDragging) {
+        if (e.cancelable) e.preventDefault();
+        this.onPointerMove(e.clientX, e.clientY);
       }
     }, { passive: false });
 
-    window.addEventListener('touchend', (e) => {
-      if (this.isDragging) {
-        const touch = e.changedTouches[0];
-        this.onPointerUp(touch.clientX, touch.clientY);
+    // Window pointerup to complete drag
+    window.addEventListener('pointerup', (e) => {
+      if (this.activePointerId !== null && e.pointerId === this.activePointerId) {
+        this.onPointerUp(e.clientX, e.clientY);
       }
     });
 
-    // Escape key clears selection
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.clearSelection();
+    // Window pointercancel for touch interruptions (incoming call, gesture nav)
+    window.addEventListener('pointercancel', (e) => {
+      if (this.activePointerId !== null && e.pointerId === this.activePointerId) {
+        this.cancelDrag();
       }
     });
+  }
+
+  cancelDrag() {
+    if (this.dragGhostEl) {
+      this.dragGhostEl.remove();
+      this.dragGhostEl = null;
+    }
+
+    this.isDragging = false;
+    this.draggedPieceIndex = null;
+    this.currentPlacement = null;
+    this.activePointerId = null;
+    this.clearGhostPreview();
+    this.updateActiveSlotVisual();
+  }
+
+  updateActiveSlotVisual(activeIdx = null) {
+    for (let i = 0; i < CONFIG.TRAY_SIZE; i++) {
+      const slotEl = document.getElementById(`tray-slot-${i}`);
+      if (slotEl) {
+        const isActive = (activeIdx === i || this.draggedPieceIndex === i);
+        slotEl.classList.toggle('active-slot', isActive);
+      }
+    }
   }
 
   // Render the entire board grid
@@ -79,11 +98,6 @@ class UIManager {
         cellEl.className = 'board-cell';
         cellEl.dataset.row = r;
         cellEl.dataset.col = c;
-
-        // Hover events for click-to-place
-        cellEl.addEventListener('mouseenter', () => this.onCellMouseEnter(r, c));
-        cellEl.addEventListener('mouseleave', () => this.onCellMouseLeave(r, c));
-        cellEl.addEventListener('click', () => this.onCellClick(r, c));
 
         const cellData = this.board.grid[r][c];
         if (cellData) {
@@ -119,7 +133,7 @@ class UIManager {
     this.trayEl.innerHTML = '';
 
     this.trayManager.pieces.forEach((piece, index) => {
-      const isSlotActive = (this.selectedTrayIndex === index || this.draggedPieceIndex === index);
+      const isSlotActive = (this.draggedPieceIndex === index);
       const slotEl = document.createElement('div');
       slotEl.className = `tray-slot ${isSlotActive ? 'active-slot' : ''}`;
       slotEl.id = `tray-slot-${index}`;
@@ -138,7 +152,7 @@ class UIManager {
       const fontSize = Math.max(9, Math.round(cellSize * 0.46));
 
       const pieceEl = document.createElement('div');
-      pieceEl.className = `tray-piece ${this.selectedTrayIndex === index ? 'selected' : ''}`;
+      pieceEl.className = 'tray-piece';
       pieceEl.style.gridTemplateColumns = `repeat(${piece.cols}, ${cellSize}px)`;
       pieceEl.style.gridTemplateRows = `repeat(${piece.rows}, ${cellSize}px)`;
       pieceEl.style.gap = `${gap}px`;
@@ -153,50 +167,41 @@ class UIManager {
           cellDiv.style.height = `${cellSize}px`;
 
           if (matchingCell) {
+            cellDiv.dataset.r = r;
+            cellDiv.dataset.c = c;
             const tileEl = this.createTileElement(matchingCell.value);
             tileEl.classList.add('mini-tile');
             tileEl.style.fontSize = `${fontSize}px`;
             cellDiv.appendChild(tileEl);
-
-            // Drag starting specifically from this cell
-            cellDiv.addEventListener('mousedown', (e) => {
-              if (e.button !== 0 || this.board.isResolving) return;
-              e.stopPropagation();
-              this.startDrag(index, piece, e.clientX, e.clientY, { r, c });
-            });
-
-            cellDiv.addEventListener('touchstart', (e) => {
-              if (this.board.isResolving || e.touches.length === 0) return;
-              e.stopPropagation();
-              const touch = e.touches[0];
-              this.startDrag(index, piece, touch.clientX, touch.clientY, { r, c });
-            }, { passive: true });
           }
           pieceEl.appendChild(cellDiv);
         }
       }
 
-      // Pointer down fallback on piece container
-      pieceEl.addEventListener('mousedown', (e) => {
-        if (e.button !== 0 || this.board.isResolving) return;
-        this.startDrag(index, piece, e.clientX, e.clientY, null);
-      });
-
-      pieceEl.addEventListener('touchstart', (e) => {
-        if (this.board.isResolving || e.touches.length === 0) return;
-        const touch = e.touches[0];
-        this.startDrag(index, piece, touch.clientX, touch.clientY, null);
-      }, { passive: true });
-
-      // Click to select (for tap-to-place)
-      pieceEl.addEventListener('click', (e) => {
-        if (this.board.isResolving) return;
-        if (!this.isDragging) {
-          this.toggleSelectPiece(index);
-        }
-      });
-
       slotEl.appendChild(pieceEl);
+
+      // Drag starts from ANYWHERE inside the slot (slot background or piece tiles)
+      slotEl.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 && e.button !== undefined && e.pointerType === 'mouse') return;
+        if (this.board.isResolving || !piece) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Check if a specific cell was grabbed
+        let grabCell = null;
+        const cellWrapper = (e.target && typeof e.target.closest === 'function') ? e.target.closest('.piece-cell-wrapper') : null;
+        if (cellWrapper && cellWrapper.dataset.r !== undefined && cellWrapper.dataset.c !== undefined) {
+          grabCell = {
+            r: parseInt(cellWrapper.dataset.r, 10),
+            c: parseInt(cellWrapper.dataset.c, 10)
+          };
+        }
+
+        this.activePointerId = e.pointerId;
+        const isTouch = e.pointerType === 'touch' || window.matchMedia('(pointer: coarse)').matches;
+        this.startDrag(index, piece, e.clientX, e.clientY, grabCell, isTouch);
+      });
+
       this.trayEl.appendChild(slotEl);
     });
   }
@@ -297,35 +302,17 @@ class UIManager {
     return { startR, startC, hoveredRow, hoveredCol };
   }
 
-  toggleSelectPiece(index) {
-    if (this.selectedTrayIndex === index) {
-      this.clearSelection();
-    } else {
-      this.selectedTrayIndex = index;
-      if (window.soundSystem) window.soundSystem.playPick();
-      this.renderTray();
-    }
-  }
-
-  clearSelection() {
-    this.selectedTrayIndex = null;
-    this.clearGhostPreview();
-    this.renderTray();
-  }
-
-  startDrag(pieceIndex, piece, clientX, clientY, grabCell = null) {
+  startDrag(pieceIndex, piece, clientX, clientY, grabCell = null, isTouch = false) {
     if (this.board.isResolving) return;
 
     this.isDragging = true;
     this.draggedPieceIndex = pieceIndex;
-    this.selectedTrayIndex = pieceIndex;
     this.currentDragAnchor = this.getPieceAnchor(piece, grabCell);
 
     if (window.soundSystem) window.soundSystem.playPick();
 
     const m = this.getBoardMetrics();
-    const isTouch = window.matchMedia('(pointer: coarse)').matches;
-    this.touchLiftY = isTouch ? 55 : 0;
+    this.touchLiftY = isTouch ? 60 : 0;
 
     // Create floating drag clone scaled EXACTLY to match board cell size
     this.dragGhostEl = document.createElement('div');
@@ -359,7 +346,7 @@ class UIManager {
     };
 
     this.updateDragPosition(clientX, clientY);
-    this.renderTray();
+    this.updateActiveSlotVisual(pieceIndex);
   }
 
   updateDragPosition(clientX, clientY) {
@@ -415,34 +402,8 @@ class UIManager {
     if (placement && pieceIndex !== null) {
       this.attemptPlacement(pieceIndex, placement.startR, placement.startC);
     } else {
-      this.renderTray();
+      this.updateActiveSlotVisual();
     }
-  }
-
-  // Cell hover for Click-to-Place mode (centers piece on hovered cell)
-  onCellMouseEnter(r, c) {
-    if (this.isDragging || this.selectedTrayIndex === null || this.board.isResolving) return;
-    const piece = this.trayManager.pieces[this.selectedTrayIndex];
-    if (!piece) return;
-    const anchor = this.getPieceAnchor(piece);
-    const startR = r - anchor.r;
-    const startC = c - anchor.c;
-    this.showGhostPreview(this.selectedTrayIndex, startR, startC);
-  }
-
-  onCellMouseLeave(r, c) {
-    if (this.isDragging || this.selectedTrayIndex === null) return;
-    this.clearGhostPreview();
-  }
-
-  onCellClick(r, c) {
-    if (this.isDragging || this.selectedTrayIndex === null || this.board.isResolving) return;
-    const piece = this.trayManager.pieces[this.selectedTrayIndex];
-    if (!piece) return;
-    const anchor = this.getPieceAnchor(piece);
-    const startR = r - anchor.r;
-    const startC = c - anchor.c;
-    this.attemptPlacement(this.selectedTrayIndex, startR, startC);
   }
 
   // Show Ghost Preview (Section 24 GDD)
@@ -542,13 +503,12 @@ class UIManager {
         setTimeout(() => cellEl.classList.remove('shake-invalid'), 300);
       }
       this.clearGhostPreview();
-      this.renderTray();
+      this.updateActiveSlotVisual();
       return;
     }
 
     // Valid placement: IMMEDIATELY consume piece from slot and update tray UI!
     this.trayManager.consumePiece(pieceIndex);
-    this.clearSelection();
     this.clearGhostPreview();
     this.renderTray();
 
@@ -1013,7 +973,6 @@ class UIManager {
   triggerShuffle() {
     if (this.board.isResolving) return;
     this.clearHint();
-    this.clearSelection();
     this.clearGhostPreview();
 
     this.trayManager.refill(this.board.grid);
