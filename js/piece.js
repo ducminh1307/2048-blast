@@ -6,18 +6,27 @@
 class PieceGenerator {
   constructor() {
     this.useSmartGeneration = true;
+    this.minActiveTier = 0;
+  }
+
+  setMinActiveTier(tier) {
+    this.minActiveTier = tier;
   }
 
   // Pick random value based on weights, with optional bias to board state
   getRandomValue(boardState = null) {
+    const minVal = CONFIG.getValueFromTier ? CONFIG.getValueFromTier(this.minActiveTier) : 2;
+    const maxSmartVal = minVal * 8; // e.g. if min is 4, smart can pick up to 32
+
     if (this.useSmartGeneration && boardState && Math.random() < 0.35) {
       // Smart bias: pick a value that actually exists on the board to facilitate adjacent merges
+      // Excludes values below minVal (retired values)
       const boardValues = [];
       const rows = boardState.length;
       const cols = boardState[0].length;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (boardState[r][c] && boardState[r][c].value <= 16) {
+          if (boardState[r][c] && boardState[r][c].value >= minVal && boardState[r][c].value <= maxSmartVal) {
             boardValues.push(boardState[r][c].value);
           }
         }
@@ -27,13 +36,14 @@ class PieceGenerator {
       }
     }
 
-    const totalWeight = CONFIG.SPAWN_VALUES.reduce((sum, item) => sum + item.weight, 0);
+    const spawnList = CONFIG.getSpawnValues ? CONFIG.getSpawnValues(this.minActiveTier) : CONFIG.SPAWN_VALUES;
+    const totalWeight = spawnList.reduce((sum, item) => sum + item.weight, 0);
     let rand = Math.random() * totalWeight;
-    for (const item of CONFIG.SPAWN_VALUES) {
+    for (const item of spawnList) {
       if (rand < item.weight) return item.value;
       rand -= item.weight;
     }
-    return 2;
+    return minVal;
   }
 
   // Pick random shape definition based on weights
@@ -103,7 +113,10 @@ class TrayManager {
     this.listeners.forEach(fn => fn(this.pieces, this.selectedPieceIndex));
   }
 
-  refill(boardState = null) {
+  refill(boardState = null, minActiveTier = 0) {
+    if (this.generator.setMinActiveTier) {
+      this.generator.setMinActiveTier(minActiveTier);
+    }
     this.pieces = this.generator.createTray(boardState);
     this.selectedPieceIndex = null;
     this.notify();

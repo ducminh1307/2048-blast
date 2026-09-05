@@ -784,4 +784,223 @@ body {
   animation: crown-bump 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* --- Number Tier System (Section 39 GDD) --- */
+
+/* --- 2248 Style Number Tier Milestone Progress Bar (Section 39 GDD) --- */
+.tier-milestone-bar-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 90%;
+  max-width: 340px;
+  height: 52px;
+  margin: 6px auto 2px auto;
+  padding: 0 4px;
+}
+
+/* Horizontal Track connecting Left to Right */
+.tier-track-bg {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  right: 20px;
+  height: 6px;
+  transform: translateY(-50%);
+  background: #0d1527;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 1;
+  overflow: hidden;
+}
+
+.tier-track-fill {
+  height: 100%;
+  width: 50%; /* Reaches the center tile by default */
+  background: linear-gradient(90deg, #2298f8 0%, #f59e0b 55%, #ff8328 100%);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+  border-radius: 4px;
+  transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Three Milestone Nodes */
+.tier-node {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.tier-node-min {
+  left: 0;
+}
+
+.tier-node-current {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tier-node-goal {
+  right: 0;
+}
+
+/* Mini Tiles */
+.tier-mini-tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #ffffff;
+  background: #2298f8;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s ease, border-color 0.3s ease;
+  user-select: none;
+}
+
+.tier-mini-tile.small-text {
+  font-size: 0.75rem;
+}
+
+.tier-mini-tile.tiny-text {
+  font-size: 0.68rem;
+}
+
+/* Crown Icon on Top of Current Highest */
+.tier-crown-icon {
+  position: absolute;
+  top: -15px;
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.8));
+  user-select: none;
+  animation: crown-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes crown-pulse {
+  0% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.18) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.tier-tile-crowned {
+  border: 2px solid #facc15 !important;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.55), 0 4px 10px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* GOAL Tag on Top of Goal Tile */
+.tier-goal-tag {
+  position: absolute;
+  top: -14px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  line-height: 1;
+  user-select: none;
+}
+
+/* Celebration bounce on milestone achievement */
+.tier-milestone-bump {
+  animation: milestone-bump 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes milestone-bump {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+
+/* Tier Unlock Banner (Section 39.14 & 39.15) */
+.tier-unlock-banner {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #38bdf8;
+  box-shadow: 0 0 35px rgba(56, 189, 248, 0.55), inset 0 0 20px rgba(56, 189, 248, 0.2);
+  border-radius: 20px;
+  padding: 18px 28px;
+  text-align: center;
+  z-index: 1000;
+  pointer-events: none;
+  animation: tier-banner-pop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  backdrop-filter: blur(12px);
+}
+
+@keyframes tier-banner-pop {
+  0% { transform: translate(-50%, -40%) scale(0.7); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.tier-unlock-banner.banner-exit {
+  animation: tier-banner-out 0.35s ease-in forwards;
+}
+
+@keyframes tier-banner-out {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -60%) scale(1.08); opacity: 0; }
+}
+
+.tier-unlock-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #facc15;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tier-unlock-title {
+  font-size: 2.2rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ffffff 0%, #38bdf8 50%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.1;
+  filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.5));
+}
+
+.tier-retired-sub {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ef4444;
+  margin-top: 6px;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+/* Tier Purge Tile Highlight & Dissolution (Section 39.14) */
+@keyframes purge-highlight-pulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.12); filter: brightness(1.7) drop-shadow(0 0 12px #ffffff); box-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+  100% { transform: scale(1.06); filter: brightness(1.4); }
+}
+
+.tile-purge-highlight {
+  animation: purge-highlight-pulse 0.15s ease-in-out forwards !important;
+  z-index: 50;
+}
+
+@keyframes purge-dissolve-fade {
+  0% { transform: scale(1.06); opacity: 1; filter: blur(0px); }
+  100% { transform: scale(0.15); opacity: 0; filter: blur(6px); }
+}
+
+.tile-purge-dissolve {
+  animation: purge-dissolve-fade 0.26s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  pointer-events: none;
+}
+
+
 

@@ -184,6 +184,54 @@ class SoundSystem {
     this.playTone(130, 'sawtooth', 0.12, 0.1, -20);
   }
 
+  /**
+   * Section 39.15: Harmonic tier-up fanfare chime
+   */
+  playTierUnlock() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Triumphant ascending arpeggio (C5 -> E5 -> G5 -> C6)
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      setTimeout(() => {
+        this.playTone(freq, 'triangle', 0.28, 0.16, 20);
+      }, idx * 60);
+    });
+    this.playImpactBass(1.2);
+  }
+
+  /**
+   * Section 39.15: Crisp sweep / dissolve sound for board relief
+   */
+  playTierPurge() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.35);
+
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch (e) {
+      console.warn('Audio purge error', e);
+    }
+  }
+
   playGameOver() {
     [329.63, 293.66, 261.63, 196.00].forEach((f, idx) => {
       setTimeout(() => {

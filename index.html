@@ -33,6 +33,29 @@
       <div class="current-score-wrapper">
         <div id="score-val" class="current-score-val">0</div>
       </div>
+      <!-- 2248 Style Number Tier Milestone Progress Bar -->
+      <div class="tier-milestone-bar-container" id="tier-milestone-bar">
+        <div class="tier-track-bg">
+          <div class="tier-track-fill" id="tier-track-fill"></div>
+        </div>
+
+        <!-- Left Node: Min Active Tier -->
+        <div class="tier-node tier-node-min">
+          <div id="tier-tile-min" class="tier-mini-tile">2</div>
+        </div>
+
+        <!-- Center Node: Current Highest Tier (Crowned) -->
+        <div class="tier-node tier-node-current">
+          <span class="tier-crown-icon">👑</span>
+          <div id="tier-tile-current" class="tier-mini-tile tier-tile-crowned">128</div>
+        </div>
+
+        <!-- Right Node: Next Goal -->
+        <div class="tier-node tier-node-goal">
+          <span class="tier-goal-tag">GOAL</span>
+          <div id="tier-tile-goal" class="tier-mini-tile">256</div>
+        </div>
+      </div>
     </header>
 
     <!-- Board Arena (8x8 Grid) -->
@@ -72,6 +95,10 @@
         <button id="btn-toggle-sound" class="settings-action-btn">
           <span id="sound-status-icon">🔊</span>
           <span id="sound-status-text">Sound: ON</span>
+        </button>
+        <button id="btn-preset-purge" class="settings-action-btn" title="Load board ready to unlock 256 and purge 2s">
+          <span>🧪</span>
+          <span>Purge Test (Unlock 256)</span>
         </button>
         <button id="btn-modal-restart" class="settings-action-btn restart">
           <span>🔄</span>

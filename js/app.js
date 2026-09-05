@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     board.anchorStrategy = 'chain_seeker';
     if (window.analyticsTracker) window.analyticsTracker.reset();
 
-    trayManager.refill(board.grid);
+    trayManager.refill(board.grid, board.minActiveTier);
     ui.renderBoard();
     ui.renderTray();
     ui.updateStats(true);
@@ -35,6 +35,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close any open modals
     document.getElementById('game-over-modal')?.classList.remove('active');
     document.getElementById('settings-modal')?.classList.remove('active');
+  }
+
+  function loadTestPreset(presetId) {
+    board.loadPreset(presetId);
+    if (presetId === 'tier_purge_ready') {
+      // Provide a piece that has value 128 to drop directly adjacent to (3,3)
+      trayManager.pieces = [
+        {
+          id: 'p_test_128',
+          shapeId: 'single',
+          name: '1-Cell Dot (128)',
+          rows: 1,
+          cols: 1,
+          cells: [{ r: 0, c: 0, value: 128 }]
+        },
+        null,
+        null
+      ];
+      trayManager.notify();
+    }
+    ui.renderBoard();
+    ui.renderTray();
+    ui.updateStats(true);
+    settingsModal?.classList.remove('active');
   }
 
   // Initial Game Start
@@ -80,12 +104,16 @@ document.addEventListener('DOMContentLoaded', () => {
     startNewGame(8);
   });
 
+  document.getElementById('btn-preset-purge')?.addEventListener('click', () => {
+    loadTestPreset('tier_purge_ready');
+  });
+
   // Game Over Restart Button
   document.getElementById('btn-gameover-restart')?.addEventListener('click', () => {
     startNewGame(8);
   });
 
   // Expose global game instance for verification & console inspection
-  window.game = { board, trayManager, pieceGenerator, ui, startNewGame };
+  window.game = { board, trayManager, pieceGenerator, ui, startNewGame, loadTestPreset };
 });
 

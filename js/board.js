@@ -12,6 +12,26 @@ class Board {
     this.history = [];
     this.anchorStrategy = 'chain_seeker'; // 'chain_seeker' (Smart Chain) or 'classic' (Section 10)
     this.initGrid();
+    this.initTierState();
+  }
+
+  initTierState() {
+    this.activeTierCount = CONFIG.ACTIVE_TIER_COUNT || 7;
+    this.minActiveTier = 0; // Tier 0 = 2
+    this.highestUnlockedTier = 0; // Starts at Tier 0 (Value 2)
+    this.highestUnlockedValue = 2; // Dynamic: real current highest number achieved
+  }
+
+  getHighestValueOnBoard() {
+    let maxVal = 2;
+    for (let r = 0; r < this.size; r++) {
+      for (let c = 0; c < this.size; c++) {
+        if (this.grid[r][c] && this.grid[r][c].value > maxVal) {
+          maxVal = this.grid[r][c].value;
+        }
+      }
+    }
+    return maxVal;
   }
 
   initGrid() {
@@ -28,6 +48,7 @@ class Board {
   setSize(newSize) {
     this.size = newSize;
     this.initGrid();
+    this.initTierState();
     this.score = 0;
     this.history = [];
   }
@@ -39,7 +60,10 @@ class Board {
   saveSnapshot() {
     this.history.push({
       grid: this.cloneGrid(),
-      score: this.score
+      score: this.score,
+      minActiveTier: this.minActiveTier,
+      highestUnlockedTier: this.highestUnlockedTier,
+      highestUnlockedValue: this.highestUnlockedValue
     });
     if (this.history.length > 20) {
       this.history.shift();
@@ -51,6 +75,11 @@ class Board {
       const snapshot = this.history.pop();
       this.grid = snapshot.grid;
       this.score = snapshot.score;
+      if (snapshot.minActiveTier !== undefined) {
+        this.minActiveTier = snapshot.minActiveTier;
+        this.highestUnlockedTier = snapshot.highestUnlockedTier;
+        this.highestUnlockedValue = snapshot.highestUnlockedValue;
+      }
       return true;
     }
     return false;
@@ -417,6 +446,10 @@ class Board {
         id: 'tile_' + Math.random().toString(36).substr(2, 7),
         isNewlyPlaced: true
       };
+      if (cr.value > this.highestUnlockedValue) {
+        this.highestUnlockedValue = cr.value;
+        this.highestUnlockedTier = CONFIG.getTierFromValue ? CONFIG.getTierFromValue(cr.value) : 0;
+      }
     }
 
     if (window.soundSystem) window.soundSystem.playPlace();
@@ -443,6 +476,7 @@ class Board {
     // Step 2: Iterative group merges and chain waves
     let currentActive = new Set(activeCoords);
     let wave = 1;
+    const formedValues = [];
 
     while (currentActive.size > 0) {
       const qualifyingGroups = this.findActivatedGroups(this.grid, currentActive);
@@ -454,6 +488,7 @@ class Board {
       for (const group of qualifyingGroups) {
         const resultVal = this.calculateMergeResult(group.value, group.count);
         const anchor = this.selectAnchor(group.cells, currentActive, this.grid, resultVal);
+        formedValues.push(resultVal);
 
         // Calculate score
         const groupMult = CONFIG.getGroupMultiplier(group.count);
@@ -540,6 +575,86 @@ class Board {
       }
     }
 
+    // Step 3: Check New Highest Tier & Tier Purge (Section 39 GDD)
+    // Critical Invariant (Section 39.8): Resolves strictly after merge chain finishes completely
+    if (formedValues.length > 0) {
+      const maxValFormed = Math.max(...formedValues);
+      if (maxValFormed > this.highestUnlockedValue) {
+        const oldHighestVal = this.highestUnlockedValue;
+        const newHighestTier = CONFIG.getTierFromValue(maxValFormed);
+        this.highestUnlockedTier = newHighestTier;
+        this.highestUnlockedValue = maxValFormed;
+
+        // Calculate Window Slide (Section 39.3, 39.5, 39.23)
+        const newMinTier = Math.max(0, this.highestUnlockedTier - this.activeTierCount + 1);
+        const hasPurge = newMinTier > this.minActiveTier;
+        const retiredTiers = [];
+        const retiredValues = [];
+
+        if (hasPurge) {
+          for (let t = this.minActiveTier; t < newMinTier; t++) {
+            retiredTiers.push(t);
+            retiredValues.push(CONFIG.getValueFromTier(t));
+          }
+          this.minActiveTier = newMinTier;
+        }
+
+        // Notify UI of Tier Unlock
+        if (onStep) {
+          await onStep({
+            phase: 'tier_unlock',
+            newHighestValue: this.highestUnlockedValue,
+            newHighestTier: this.highestUnlockedTier,
+            oldHighestValue: oldHighestVal,
+            hasPurge,
+            retiredValues,
+            minActiveTier: this.minActiveTier
+          });
+        }
+
+        // Tier Purge Execution (Section 39.6, 39.10, 39.25)
+        if (hasPurge && retiredValues.length > 0) {
+          const purgeTargets = [];
+          const retiredSet = new Set(retiredValues);
+          for (let r = 0; r < this.size; r++) {
+            for (let c = 0; c < this.size; c++) {
+              if (this.grid[r][c] && retiredSet.has(this.grid[r][c].value)) {
+                purgeTargets.push({ r, c, value: this.grid[r][c].value });
+              }
+            }
+          }
+
+          if (purgeTargets.length > 0) {
+            // Visual highlight & dissolution
+            if (onStep) {
+              await onStep({
+                phase: 'tier_purge',
+                purgeTargets,
+                retiredValues,
+                tilesCount: purgeTargets.length
+              });
+            } else {
+              await sleep(delayMs);
+            }
+
+            // Evacuate targets cleanly to null (EMPTY)
+            for (const pt of purgeTargets) {
+              this.grid[pt.r][pt.c] = null;
+            }
+
+            if (onStep) {
+              await onStep({
+                phase: 'tier_purge_complete',
+                grid: this.cloneGrid(),
+                retiredValues,
+                tilesCount: purgeTargets.length
+              });
+            }
+          }
+        }
+      }
+    }
+
     this.isResolving = false;
     return true;
   }
@@ -616,6 +731,28 @@ class Board {
           }
         }
         break;
+
+      case 'tier_purge_ready':
+        // GDD Section 39: Test Tier Purge when unlocking 256 (Clears all 2s)
+        this.initTierState();
+        this.grid[3][3] = { value: 128 };
+        // Scatter some 2s across the board to be purged
+        this.grid[1][1] = { value: 2 };
+        this.grid[1][5] = { value: 2 };
+        this.grid[5][2] = { value: 2 };
+        this.grid[5][6] = { value: 2 };
+        this.grid[2][4] = { value: 4 };
+        this.grid[4][1] = { value: 8 };
+        this.highestUnlockedValue = 128;
+        this.highestUnlockedTier = CONFIG.getTierFromValue ? CONFIG.getTierFromValue(128) : 6;
+        break;
+    }
+
+    // Synchronize highest value with loaded board state
+    const maxValOnBoard = this.getHighestValueOnBoard();
+    if (maxValOnBoard > this.highestUnlockedValue) {
+      this.highestUnlockedValue = maxValOnBoard;
+      this.highestUnlockedTier = CONFIG.getTierFromValue ? CONFIG.getTierFromValue(maxValOnBoard) : 0;
     }
   }
 }

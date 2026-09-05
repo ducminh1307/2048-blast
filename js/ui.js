@@ -36,6 +36,7 @@ class UIManager {
     this.currentPlacement = null; // { startR, startC }
 
     this.setupEventListeners();
+    this.updateTierHUD();
   }
 
   setupEventListeners() {
@@ -525,7 +526,7 @@ class UIManager {
     if (success) {
       // Check if tray is empty -> refill (Section 5.1)
       if (this.trayManager.isTrayEmpty()) {
-        this.trayManager.refill(this.board.grid);
+        this.trayManager.refill(this.board.grid, this.board.minActiveTier);
         this.renderTray();
       }
 
@@ -773,6 +774,133 @@ class UIManager {
 
       // 5. Result Settle: Nhịp thở ngắn để số hồi về bình thường trước khi bước sóng tiếp tục
       await new Promise(r => setTimeout(r, isHeavyPop ? 200 : 160));
+    } else if (stepInfo.phase === 'tier_unlock') {
+      if (stepInfo.hasPurge) {
+        if (window.soundSystem) window.soundSystem.playTierUnlock();
+        this.showTierUnlockBanner(stepInfo.newHighestValue, stepInfo.retiredValues);
+        this.updateTierHUD(true);
+        await new Promise(r => setTimeout(r, 350));
+      } else {
+        // Pre-Tier 1 record increase (e.g. formed 4, 8, 16, 32, 64, 128)
+        this.updateTierHUD(false);
+        const currentEl = document.getElementById('tier-tile-current');
+        if (currentEl) {
+          currentEl.classList.remove('tier-milestone-bump');
+          void currentEl.offsetWidth;
+          currentEl.classList.add('tier-milestone-bump');
+          setTimeout(() => currentEl.classList.remove('tier-milestone-bump'), 450);
+        }
+      }
+    } else if (stepInfo.phase === 'tier_purge') {
+      await this.animateTierPurge(stepInfo.purgeTargets, stepInfo.tilesCount);
+    } else if (stepInfo.phase === 'tier_purge_complete') {
+      this.renderBoard();
+      this.updateStats();
+      this.updateTierHUD();
+    }
+  }
+
+  showTierUnlockBanner(newVal, retiredVals) {
+    const banner = document.createElement('div');
+    banner.className = 'tier-unlock-banner';
+    const retiredText = retiredVals && retiredVals.length > 0
+      ? `<div class="tier-retired-sub">Cleared ${retiredVals.join(', ')} from the board!</div>`
+      : '';
+    banner.innerHTML = `
+      <div class="tier-unlock-badge">🏆 NEW TIER UNLOCKED</div>
+      <div class="tier-unlock-title">${newVal}</div>
+      ${retiredText}
+    `;
+    document.body.appendChild(banner);
+    setTimeout(() => {
+      banner.classList.add('banner-exit');
+      setTimeout(() => banner.remove(), 350);
+    }, 1800);
+  }
+
+  async animateTierPurge(purgeTargets, tilesCount) {
+    if (window.soundSystem) window.soundSystem.playTierPurge();
+
+    // Step 1: Highlight pulse (150ms)
+    for (const pt of purgeTargets) {
+      const cellEl = this.getCellEl(pt.r, pt.c);
+      const tile = cellEl?.querySelector('.tile');
+      if (tile) {
+        tile.classList.add('tile-purge-highlight');
+      }
+    }
+
+    await new Promise(r => setTimeout(r, 150));
+
+    // Step 2: Dissolve into empty cells + particles (260ms)
+    if (tilesCount >= 6) {
+      this.triggerBoardShake('light');
+    }
+
+    for (const pt of purgeTargets) {
+      const cellEl = this.getCellEl(pt.r, pt.c);
+      const tile = cellEl?.querySelector('.tile');
+      if (tile) {
+        tile.classList.remove('tile-purge-highlight');
+        tile.classList.add('tile-purge-dissolve');
+      }
+      const tileColor = CONFIG.TILE_COLORS[pt.value]?.bg || '#2298f8';
+      this.spawnParticleBurst(pt.r, pt.c, 12, tileColor, false);
+    }
+
+    await new Promise(r => setTimeout(r, 260));
+  }
+
+  styleMiniTile(el, value) {
+    if (!el) return;
+    el.textContent = value;
+    const colorInfo = CONFIG.TILE_COLORS[value] || CONFIG.TILE_COLORS.DEFAULT;
+    el.style.backgroundColor = colorInfo.bg;
+    el.style.color = colorInfo.text;
+    el.style.borderColor = colorInfo.border;
+    el.classList.remove('small-text', 'tiny-text');
+    if (value >= 10000) {
+      el.classList.add('tiny-text');
+    } else if (value >= 1000) {
+      el.classList.add('small-text');
+    }
+  }
+
+  updateTierHUD(isUnlockCelebration = false) {
+    const minEl = document.getElementById('tier-tile-min');
+    const currentEl = document.getElementById('tier-tile-current');
+    const goalEl = document.getElementById('tier-tile-goal');
+    const fillEl = document.getElementById('tier-track-fill');
+    if (!minEl || !currentEl || !goalEl) return;
+
+    const minVal = CONFIG.getValueFromTier ? CONFIG.getValueFromTier(this.board.minActiveTier) : 2;
+    const boardMax = this.board.getHighestValueOnBoard ? this.board.getHighestValueOnBoard() : 2;
+    // Current highest value on board or achieved in this run (starts at real current, NOT 128!)
+    const currentVal = Math.max(minVal, this.board.highestUnlockedValue || 2, boardMax);
+
+    // Goal calculation:
+    // If not yet reached Tier 1 milestone (256), the goal is 256.
+    // Once 256 or higher is reached, goal becomes currentVal * 2.
+    const goalVal = currentVal < 256 ? 256 : currentVal * 2;
+
+    this.styleMiniTile(minEl, minVal);
+    this.styleMiniTile(currentEl, currentVal);
+    this.styleMiniTile(goalEl, goalVal);
+
+    if (fillEl) {
+      if (isUnlockCelebration) {
+        // Surge to 100% (reached the goal), pop the goal tile, then settle to 50%
+        fillEl.style.width = '100%';
+        currentEl.classList.add('tier-milestone-bump');
+        goalEl.classList.add('tier-milestone-bump');
+        setTimeout(() => {
+          fillEl.style.width = '50%';
+          currentEl.classList.remove('tier-milestone-bump');
+          goalEl.classList.remove('tier-milestone-bump');
+        }, 600);
+      } else {
+        fillEl.style.width = '50%';
+      }
     }
   }
 
@@ -885,6 +1013,8 @@ class UIManager {
       if (this.turnsValEl) this.turnsValEl.textContent = metrics.turns;
       if (this.occupancyValEl) this.occupancyValEl.textContent = metrics.currentOccupancy;
     }
+
+    this.updateTierHUD();
   }
 
   clearHint() {
@@ -975,7 +1105,7 @@ class UIManager {
     this.clearHint();
     this.clearGhostPreview();
 
-    this.trayManager.refill(this.board.grid);
+    this.trayManager.refill(this.board.grid, this.board.minActiveTier);
     this.renderTray();
 
     document.querySelectorAll('.tray-piece').forEach(p => {

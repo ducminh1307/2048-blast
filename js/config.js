@@ -10,6 +10,31 @@ const CONFIG = {
 
   TRAY_SIZE: 3,
 
+  // Number Tier System (Section 39 GDD)
+  ACTIVE_TIER_COUNT: 7,
+  INITIAL_HIGHEST_VALUE: 128,
+
+  getTierFromValue(val) {
+    return Math.round(Math.log2(Math.max(2, val))) - 1;
+  },
+
+  getValueFromTier(tier) {
+    return Math.pow(2, tier + 1);
+  },
+
+  // Dynamic spawn values based on current min active tier (Section 39.12, 39.13)
+  // Window Base Offset: generates pieces containing 3 base values starting at minActiveTier
+  getSpawnValues(minActiveTier = 0) {
+    const v1 = this.getValueFromTier(minActiveTier);
+    const v2 = this.getValueFromTier(minActiveTier + 1);
+    const v3 = this.getValueFromTier(minActiveTier + 2);
+    return [
+      { value: v1, weight: 65 },
+      { value: v2, weight: 30 },
+      { value: v3, weight: 5 }
+    ];
+  },
+
   // Numbers spawn probabilities (Section 21)
   // Initially dominated by 2 and 4, occasionally 8
   SPAWN_VALUES: [
@@ -17,6 +42,7 @@ const CONFIG = {
     { value: 4, weight: 30 },
     { value: 8, weight: 5 }
   ],
+
 
   // Visual tile themes (Vibrant modern casual puzzle palette matching mockup)
   TILE_COLORS: {
