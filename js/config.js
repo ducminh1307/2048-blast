@@ -44,9 +44,9 @@ const CONFIG = {
   ],
 
 
-  // Special Tile Spawn Rates
-  WILDCARD_SPAWN_CHANCE: 0.035, // ~3.5% chance per cell to spawn as Wildcard Star
-  BOOSTER_2X_SPAWN_CHANCE: 0.05, // ~5% chance per cell to spawn with 2x Booster
+  // Special Tile Spawn Rates (Balanced: Wildcard is rare/jackpot, Booster 2x is moderate)
+  WILDCARD_SPAWN_CHANCE: 0.012, // ~1.2% per cell (rare jackpot ~1 in 11 trays)
+  BOOSTER_2X_SPAWN_CHANCE: 0.03, // ~3.0% per cell (~1 in 4.6 trays, 2.5x more common than Wildcard)
 
   // Visual tile themes (Vibrant modern casual puzzle palette matching mockup)
   TILE_COLORS: {

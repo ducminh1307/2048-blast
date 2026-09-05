@@ -58,7 +58,7 @@ class PieceGenerator {
   }
 
   // Generate a piece with independent numbers on each cell (Section 5.3)
-  createPiece(boardState = null, specificShapeId = null, forcedValues = null) {
+  createPiece(boardState = null, specificShapeId = null, forcedValues = null, allowWildcard = true) {
     const shapeDef = specificShapeId
       ? SHAPE_DEFINITIONS.find(s => s.id === specificShapeId) || this.getRandomShape()
       : this.getRandomShape();
@@ -69,6 +69,8 @@ class PieceGenerator {
       if (r > maxR) maxR = r;
       if (c > maxC) maxC = c;
     });
+
+    let pieceHasSpecial = false;
 
     const cells = shapeDef.cells.map(([r, c], idx) => {
       let isWildcard = false;
@@ -88,17 +90,19 @@ class PieceGenerator {
           val = forced;
         }
       } else {
-        // Roll for special tile
+        // Roll for special tile (at most 1 special cell per piece to keep game balance)
+        const wildcardChance = allowWildcard ? (CONFIG.WILDCARD_SPAWN_CHANCE || 0.012) : 0;
+        const boosterChance = CONFIG.BOOSTER_2X_SPAWN_CHANCE || 0.03;
         const randSpecial = Math.random();
-        const wildcardChance = CONFIG.WILDCARD_SPAWN_CHANCE || 0.035;
-        const boosterChance = CONFIG.BOOSTER_2X_SPAWN_CHANCE || 0.05;
 
-        if (randSpecial < wildcardChance) {
+        if (!pieceHasSpecial && randSpecial < wildcardChance) {
           val = '★';
           isWildcard = true;
-        } else if (randSpecial < wildcardChance + boosterChance) {
+          pieceHasSpecial = true;
+        } else if (!pieceHasSpecial && randSpecial < wildcardChance + boosterChance) {
           val = this.getRandomValue(boardState);
           multiplier = 2;
+          pieceHasSpecial = true;
         } else {
           val = this.getRandomValue(boardState);
         }
@@ -126,8 +130,13 @@ class PieceGenerator {
   // Generate a tray with 3 pieces (Section 5.1)
   createTray(boardState = null) {
     const pieces = [];
+    let trayHasWildcard = false;
     for (let i = 0; i < CONFIG.TRAY_SIZE; i++) {
-      pieces.push(this.createPiece(boardState));
+      const piece = this.createPiece(boardState, null, null, !trayHasWildcard);
+      if (piece.cells.some(c => c.isWildcard)) {
+        trayHasWildcard = true;
+      }
+      pieces.push(piece);
     }
     return pieces;
   }
