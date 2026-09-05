@@ -194,3 +194,16 @@ class SoundSystem {
 }
 
 window.soundSystem = new SoundSystem();
+
+// Auto-unlock Web Audio API on first mobile user interaction
+const unlockAudioContext = () => {
+  if (window.soundSystem) {
+    window.soundSystem.init();
+  }
+  ['pointerdown', 'touchstart', 'touchend', 'click'].forEach(evt => {
+    document.removeEventListener(evt, unlockAudioContext, true);
+  });
+};
+['pointerdown', 'touchstart', 'touchend', 'click'].forEach(evt => {
+  document.addEventListener(evt, unlockAudioContext, { once: true, passive: true, capture: true });
+});
