@@ -54,6 +54,34 @@ document.addEventListener('DOMContentLoaded', () => {
         null
       ];
       trayManager.notify();
+    } else if (presetId === 'preset_wildcard') {
+      trayManager.pieces = [
+        {
+          id: 'p_test_wildcard',
+          shapeId: 'single',
+          name: '1-Cell Star (★)',
+          rows: 1,
+          cols: 1,
+          cells: [{ r: 0, c: 0, value: '★', isWildcard: true, multiplier: 1 }]
+        },
+        null,
+        null
+      ];
+      trayManager.notify();
+    } else if (presetId === 'preset_booster_2x') {
+      trayManager.pieces = [
+        {
+          id: 'p_test_booster',
+          shapeId: 'single',
+          name: '1-Cell Booster (4 [2×])',
+          rows: 1,
+          cols: 1,
+          cells: [{ r: 0, c: 0, value: 4, isWildcard: false, multiplier: 2 }]
+        },
+        null,
+        null
+      ];
+      trayManager.notify();
     }
     ui.renderBoard();
     ui.renderTray();
@@ -106,6 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-preset-purge')?.addEventListener('click', () => {
     loadTestPreset('tier_purge_ready');
+  });
+
+  document.getElementById('btn-preset-wildcard')?.addEventListener('click', () => {
+    loadTestPreset('preset_wildcard');
+  });
+
+  document.getElementById('btn-preset-booster')?.addEventListener('click', () => {
+    loadTestPreset('preset_booster_2x');
   });
 
   // Game Over Restart Button

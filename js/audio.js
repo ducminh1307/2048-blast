@@ -185,6 +185,39 @@ class SoundSystem {
   }
 
   /**
+   * Magical sparkling arpeggio chime for Wildcard Star merge
+   */
+  playWildcardMerge() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Magical twinkle notes (E5 -> G#5 -> B5 -> E6)
+    const notes = [659.25, 830.61, 987.77, 1318.51];
+    notes.forEach((freq, idx) => {
+      setTimeout(() => {
+        this.playTone(freq, 'sine', 0.2, 0.12, 15);
+      }, idx * 45);
+    });
+  }
+
+  /**
+   * Powerful double-hit punch for 2x Booster merge
+   */
+  playBoosterMerge() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    this.playImpactBass(1.3);
+    // Double ding chime
+    this.playTone(523.25, 'triangle', 0.18, 0.16, 30);
+    setTimeout(() => {
+      this.playTone(1046.50, 'triangle', 0.22, 0.18, 20);
+    }, 60);
+  }
+
+  /**
    * Section 39.15: Harmonic tier-up fanfare chime
    */
   playTierUnlock() {

@@ -71,10 +71,46 @@ class PieceGenerator {
     });
 
     const cells = shapeDef.cells.map(([r, c], idx) => {
-      const val = forcedValues && forcedValues[idx] !== undefined
-        ? forcedValues[idx]
-        : this.getRandomValue(boardState);
-      return { r, c, value: val };
+      let isWildcard = false;
+      let multiplier = 1;
+      let val;
+
+      if (forcedValues && forcedValues[idx] !== undefined) {
+        const forced = forcedValues[idx];
+        if (typeof forced === 'object' && forced !== null) {
+          val = forced.value !== undefined ? forced.value : (forced.isWildcard ? '★' : this.getRandomValue(boardState));
+          isWildcard = !!forced.isWildcard;
+          multiplier = forced.multiplier || 1;
+        } else if (forced === '★') {
+          val = '★';
+          isWildcard = true;
+        } else {
+          val = forced;
+        }
+      } else {
+        // Roll for special tile
+        const randSpecial = Math.random();
+        const wildcardChance = CONFIG.WILDCARD_SPAWN_CHANCE || 0.035;
+        const boosterChance = CONFIG.BOOSTER_2X_SPAWN_CHANCE || 0.05;
+
+        if (randSpecial < wildcardChance) {
+          val = '★';
+          isWildcard = true;
+        } else if (randSpecial < wildcardChance + boosterChance) {
+          val = this.getRandomValue(boardState);
+          multiplier = 2;
+        } else {
+          val = this.getRandomValue(boardState);
+        }
+      }
+
+      return {
+        r,
+        c,
+        value: val,
+        isWildcard,
+        multiplier
+      };
     });
 
     return {

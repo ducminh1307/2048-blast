@@ -102,7 +102,7 @@ class UIManager {
 
         const cellData = this.board.grid[r][c];
         if (cellData) {
-          const tileEl = this.createTileElement(cellData.value);
+          const tileEl = this.createTileElement(cellData);
           cellEl.appendChild(tileEl);
         }
 
@@ -113,17 +113,40 @@ class UIManager {
     this.updateStats();
   }
 
-  createTileElement(value, isGhost = false, extraClass = '') {
+  createTileElement(cellDataOrValue, isGhost = false, extraClass = '') {
+    let value, isWildcard = false, multiplier = 1;
+    if (typeof cellDataOrValue === 'object' && cellDataOrValue !== null) {
+      value = cellDataOrValue.value;
+      isWildcard = !!cellDataOrValue.isWildcard || value === '★';
+      multiplier = cellDataOrValue.multiplier || 1;
+    } else {
+      value = cellDataOrValue;
+      isWildcard = value === '★';
+    }
+
     const tile = document.createElement('div');
-    tile.className = `tile val-${value} ${isGhost ? 'ghost-tile' : ''} ${extraClass}`.trim();
-    tile.textContent = value;
+    const wildcardClass = isWildcard ? 'tile-wildcard' : '';
+    const boosterClass = multiplier > 1 ? 'tile-booster-2x' : '';
+    tile.className = `tile val-${value} ${wildcardClass} ${boosterClass} ${isGhost ? 'ghost-tile' : ''} ${extraClass}`.trim();
+    tile.textContent = isWildcard ? '★' : value;
 
     const style = CONFIG.TILE_COLORS[value] || CONFIG.TILE_COLORS.DEFAULT;
-    tile.style.backgroundColor = style.bg;
+    if (style.bg && style.bg.startsWith('linear-gradient')) {
+      tile.style.background = style.bg;
+    } else {
+      tile.style.backgroundColor = style.bg;
+    }
     tile.style.color = style.text;
     tile.style.borderColor = style.border;
     if (style.glow) {
       tile.style.boxShadow = `0 0 12px ${style.glow}`;
+    }
+
+    if (multiplier > 1 && !isWildcard) {
+      const badge = document.createElement('span');
+      badge.className = 'booster-badge';
+      badge.textContent = `${multiplier}×`;
+      tile.appendChild(badge);
     }
 
     return tile;
@@ -170,7 +193,7 @@ class UIManager {
           if (matchingCell) {
             cellDiv.dataset.r = r;
             cellDiv.dataset.c = c;
-            const tileEl = this.createTileElement(matchingCell.value);
+            const tileEl = this.createTileElement(matchingCell);
             tileEl.classList.add('mini-tile');
             tileEl.style.fontSize = `${fontSize}px`;
             cellDiv.appendChild(tileEl);
@@ -331,7 +354,7 @@ class UIManager {
         cellDiv.style.height = `${m.cellH}px`;
 
         if (matchingCell) {
-          const tileEl = this.createTileElement(matchingCell.value);
+          const tileEl = this.createTileElement(matchingCell);
           cellDiv.appendChild(tileEl);
         }
         this.dragGhostEl.appendChild(cellDiv);
@@ -439,7 +462,7 @@ class UIManager {
       if (!cellEl) return;
 
       cellEl.classList.add('preview-valid');
-      const ghostTile = this.createTileElement(p.value, true);
+      const ghostTile = this.createTileElement(p, true);
       cellEl.appendChild(ghostTile);
     });
 
@@ -748,6 +771,12 @@ class UIManager {
       // 3. Audio SFX right at impact frame
       if (window.soundSystem) {
         stepInfo.waveResults.forEach(wr => {
+          if (wr.hasWildcard && window.soundSystem.playWildcardMerge) {
+            window.soundSystem.playWildcardMerge();
+          }
+          if (wr.hasBooster && window.soundSystem.playBoosterMerge) {
+            window.soundSystem.playBoosterMerge();
+          }
           window.soundSystem.playGroupMerge(wr.count, wr.resultVal, wave);
         });
         if (wave > 1) {
@@ -765,10 +794,16 @@ class UIManager {
           }
         }
 
-        const tileColor = CONFIG.TILE_COLORS[wr.resultVal]?.bg || '#38bdf8';
-        this.spawnParticleBurst(wr.anchor.r, wr.anchor.c, particleCount, tileColor, withShockwave);
+        const tileColor = wr.hasWildcard
+          ? '#facc15'
+          : (CONFIG.TILE_COLORS[wr.resultVal]?.bg || '#38bdf8');
+        this.spawnParticleBurst(wr.anchor.r, wr.anchor.c, particleCount, tileColor, withShockwave || wr.hasBooster);
 
-        const label = `+${wr.earnedScore}`;
+        let specialTag = '';
+        if (wr.hasBooster) specialTag = ' 2×!';
+        else if (wr.hasWildcard) specialTag = ' ★!';
+
+        const label = `+${wr.earnedScore}${specialTag}`;
         this.spawnFloatingText(wr.anchor.r, wr.anchor.c, label);
       });
 

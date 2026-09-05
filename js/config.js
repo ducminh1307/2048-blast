@@ -44,6 +44,10 @@ const CONFIG = {
   ],
 
 
+  // Special Tile Spawn Rates
+  WILDCARD_SPAWN_CHANCE: 0.035, // ~3.5% chance per cell to spawn as Wildcard Star
+  BOOSTER_2X_SPAWN_CHANCE: 0.05, // ~5% chance per cell to spawn with 2x Booster
+
   // Visual tile themes (Vibrant modern casual puzzle palette matching mockup)
   TILE_COLORS: {
     2: { bg: '#2298f8', text: '#ffffff', border: '#1a7fd4', glow: 'rgba(34, 152, 248, 0.4)' },
@@ -59,6 +63,7 @@ const CONFIG = {
     2048: { bg: '#eab308', text: '#ffffff', border: '#ca8a04', glow: 'rgba(234, 179, 8, 0.7)' },
     4096: { bg: '#ec4899', text: '#ffffff', border: '#db2777', glow: 'rgba(236, 72, 153, 0.7)' },
     8192: { bg: '#14b8a6', text: '#ffffff', border: '#0d9488', glow: 'rgba(20, 184, 166, 0.8)' },
+    '★': { bg: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #f59e0b 100%)', text: '#ffffff', border: '#facc15', glow: 'rgba(250, 204, 21, 0.8)' },
     DEFAULT: { bg: '#6366f1', text: '#ffffff', border: '#4f46e5', glow: 'rgba(99, 102, 241, 0.8)' }
   },
 

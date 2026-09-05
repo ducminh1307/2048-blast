@@ -148,6 +148,8 @@ class Board {
           br,
           bc,
           value: cell.value,
+          isWildcard: !!cell.isWildcard,
+          multiplier: cell.multiplier || 1,
           status: 'empty'
         });
       } else {
@@ -160,6 +162,8 @@ class Board {
           bc,
           value: cell.value,
           boardValue: boardCell.value,
+          isWildcard: !!cell.isWildcard,
+          multiplier: cell.multiplier || 1,
           status: 'blocked'
         });
       }
@@ -176,31 +180,159 @@ class Board {
 
   /**
    * Check 4-directional connected components containing active cells.
-   * LOCKED RULE: Existing matching cells do NOT auto-merge unless touched by active reaction (Section 7.4 & 12).
+   * Supports Special Tiles:
+   * - Wildcard (★): adopts neighbor number to join active group (Smart Selection if touching multiple values)
+   * - 2x Booster: multiplies merge result value by 2x
    */
   findActivatedGroups(targetGrid, activeCoordSet) {
+    const wildcardClusters = [];
+    const visitedWildcards = new Set();
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+    for (let r = 0; r < this.size; r++) {
+      for (let c = 0; c < this.size; c++) {
+        const cell = targetGrid[r][c];
+        const key = `${r},${c}`;
+        if (cell && (cell.isWildcard || cell.value === '★') && !visitedWildcards.has(key)) {
+          const cluster = [];
+          const q = [[r, c]];
+          visitedWildcards.add(key);
+
+          while (q.length > 0) {
+            const [cr, cc] = q.shift();
+            cluster.push({ r: cr, c: cc, cell: targetGrid[cr][cc] });
+
+            for (const [dr, dc] of dirs) {
+              const nr = cr + dr;
+              const nc = cc + dc;
+              const nKey = `${nr},${nc}`;
+              if (this.inBounds(nr, nc) && !visitedWildcards.has(nKey)) {
+                const nCell = targetGrid[nr][nc];
+                if (nCell && (nCell.isWildcard || nCell.value === '★')) {
+                  visitedWildcards.add(nKey);
+                  q.push([nr, nc]);
+                }
+              }
+            }
+          }
+          wildcardClusters.push(cluster);
+        }
+      }
+    }
+
+    // Fast path: No wildcards on board
+    if (wildcardClusters.length === 0) {
+      return this._findStandardGroups(targetGrid, activeCoordSet);
+    }
+
+    // Clone grid to prepare effectiveGrid
+    const effectiveGrid = this.cloneGrid(targetGrid);
+
+    // For each wildcard cluster, determine candidate numbers from its orthogonal neighbors
+    for (const cluster of wildcardClusters) {
+      const neighborValues = new Set();
+
+      for (const w of cluster) {
+        for (const [dr, dc] of dirs) {
+          const nr = w.r + dr;
+          const nc = w.c + dc;
+          if (this.inBounds(nr, nc)) {
+            const nCell = targetGrid[nr][nc];
+            if (nCell && typeof nCell.value === 'number') {
+              neighborValues.add(nCell.value);
+            }
+          }
+        }
+      }
+
+      if (neighborValues.size === 0) {
+        // No number neighbors, remains wildcard
+        continue;
+      }
+
+      // Evaluate each candidate value to find the smartest choice (highest merge result/tier)
+      let bestVal = null;
+      let bestScore = -1;
+
+      for (const candVal of neighborValues) {
+        const testGrid = this.cloneGrid(targetGrid);
+        for (const w of cluster) {
+          testGrid[w.r][w.c] = {
+            ...w.cell,
+            value: candVal,
+            isWildcard: true
+          };
+        }
+
+        const candGroups = this._findStandardGroups(testGrid, activeCoordSet);
+        const clusterCoordKeys = new Set(cluster.map(w => `${w.r},${w.c}`));
+        const matchingGroup = candGroups.find(g => g.cells.some(c => clusterCoordKeys.has(`${c.r},${c.c}`)));
+
+        if (matchingGroup) {
+          const resultVal = this.calculateMergeResult(matchingGroup.value, matchingGroup.count, matchingGroup.totalMultiplier || 1);
+          const score = resultVal * CONFIG.getGroupMultiplier(matchingGroup.count);
+          if (score > bestScore || (score === bestScore && candVal > (bestVal || 0))) {
+            bestScore = score;
+            bestVal = candVal;
+          }
+        }
+      }
+
+      if (bestVal !== null) {
+        for (const w of cluster) {
+          effectiveGrid[w.r][w.c] = {
+            ...w.cell,
+            value: bestVal,
+            isWildcard: true
+          };
+        }
+      }
+    }
+
+    return this._findStandardGroups(effectiveGrid, activeCoordSet);
+  }
+
+  _findStandardGroups(targetGrid, activeCoordSet) {
     const visited = Array.from({ length: this.size }, () => Array(this.size).fill(false));
     const qualifyingGroups = [];
-
-    const dirs = [
-      [-1, 0], [1, 0], [0, -1], [0, 1]
-    ];
+    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
     for (let r = 0; r < this.size; r++) {
       for (let c = 0; c < this.size; c++) {
         if (visited[r][c] || !targetGrid[r][c]) continue;
 
-        const groupVal = targetGrid[r][c].value;
+        const rootCell = targetGrid[r][c];
+        if (rootCell.value === '★') continue; // Unmatched wildcard stays idle
+
+        const groupVal = rootCell.value;
         const groupCells = [];
         let containsActive = false;
+        let totalMultiplier = 1;
+        let hasWildcard = false;
+        let hasBooster = false;
 
-        // BFS flood fill
         const queue = [[r, c]];
         visited[r][c] = true;
 
         while (queue.length > 0) {
           const [currR, currC] = queue.shift();
-          groupCells.push({ r: currR, c: currC, value: groupVal });
+          const cellObj = targetGrid[currR][currC];
+          const mult = cellObj.multiplier || 1;
+          if (mult > 1) {
+            totalMultiplier *= mult;
+            hasBooster = true;
+          }
+          if (cellObj.isWildcard) {
+            hasWildcard = true;
+          }
+
+          groupCells.push({
+            r: currR,
+            c: currC,
+            value: groupVal,
+            multiplier: mult,
+            isWildcard: !!cellObj.isWildcard
+          });
 
           const key = `${currR},${currC}`;
           if (activeCoordSet.has(key)) {
@@ -225,7 +357,10 @@ class Board {
           qualifyingGroups.push({
             value: groupVal,
             cells: groupCells,
-            count: groupCells.length
+            count: groupCells.length,
+            totalMultiplier,
+            hasWildcard,
+            hasBooster
           });
         }
       }
@@ -327,10 +462,10 @@ class Board {
 
   /**
    * Calculate Multi-Tile Merge result (Section 8)
-   * Result = Value * 2^(Count - 1)
+   * Result = Value * 2^(Count - 1) * multiplier
    */
-  calculateMergeResult(value, count) {
-    return value * Math.pow(2, count - 1);
+  calculateMergeResult(value, count, multiplier = 1) {
+    return value * Math.pow(2, count - 1) * (multiplier || 1);
   }
 
   /**
@@ -354,11 +489,17 @@ class Board {
     for (const cr of valResult.cellResults) {
       const key = `${cr.br},${cr.bc}`;
       activeCoords.add(key);
-      simGrid[cr.br][cr.bc] = { value: cr.value };
+      simGrid[cr.br][cr.bc] = {
+        value: cr.value,
+        isWildcard: !!cr.isWildcard,
+        multiplier: cr.multiplier || 1
+      };
       placements.push({
         r: cr.br,
         c: cr.bc,
-        value: cr.value
+        value: cr.value,
+        isWildcard: !!cr.isWildcard,
+        multiplier: cr.multiplier || 1
       });
     }
 
@@ -375,7 +516,7 @@ class Board {
 
       const nextActive = new Set();
       for (const group of groups) {
-        const resultVal = this.calculateMergeResult(group.value, group.count);
+        const resultVal = this.calculateMergeResult(group.value, group.count, group.totalMultiplier || 1);
         const anchor = this.selectAnchor(group.cells, simActive, simGrid, resultVal);
 
         group.cells.forEach(c => {
@@ -396,6 +537,9 @@ class Board {
           count: group.count,
           value: group.value,
           resultVal,
+          multiplier: group.totalMultiplier || 1,
+          hasWildcard: !!group.hasWildcard,
+          hasBooster: !!group.hasBooster,
           anchor: { r: anchor.r, c: anchor.c }
         });
       }
@@ -444,9 +588,11 @@ class Board {
       this.grid[cr.br][cr.bc] = {
         value: cr.value,
         id: 'tile_' + Math.random().toString(36).substr(2, 7),
-        isNewlyPlaced: true
+        isNewlyPlaced: true,
+        isWildcard: !!cr.isWildcard,
+        multiplier: cr.multiplier || 1
       };
-      if (cr.value > this.highestUnlockedValue) {
+      if (typeof cr.value === 'number' && cr.value > this.highestUnlockedValue) {
         this.highestUnlockedValue = cr.value;
         this.highestUnlockedTier = CONFIG.getTierFromValue ? CONFIG.getTierFromValue(cr.value) : 0;
       }
@@ -486,7 +632,7 @@ class Board {
       const waveResults = [];
 
       for (const group of qualifyingGroups) {
-        const resultVal = this.calculateMergeResult(group.value, group.count);
+        const resultVal = this.calculateMergeResult(group.value, group.count, group.totalMultiplier || 1);
         const anchor = this.selectAnchor(group.cells, currentActive, this.grid, resultVal);
         formedValues.push(resultVal);
 
@@ -507,7 +653,10 @@ class Board {
           earnedScore,
           count: group.count,
           cells: group.cells,
-          value: group.value
+          value: group.value,
+          multiplier: group.totalMultiplier || 1,
+          hasWildcard: !!group.hasWildcard,
+          hasBooster: !!group.hasBooster
         });
       }
 
@@ -745,6 +894,19 @@ class Board {
         this.grid[4][1] = { value: 8 };
         this.highestUnlockedValue = 128;
         this.highestUnlockedTier = CONFIG.getTierFromValue ? CONFIG.getTierFromValue(128) : 6;
+        break;
+
+      case 'preset_wildcard':
+        // Test Wildcard Star: place 4 at (3,2) and 8 at (3,4)
+        this.initTierState();
+        this.grid[3][2] = { value: 4 };
+        this.grid[3][4] = { value: 8 };
+        break;
+
+      case 'preset_booster_2x':
+        // Test 2x Booster: place 4 at (3,2)
+        this.initTierState();
+        this.grid[3][2] = { value: 4 };
         break;
     }
 
