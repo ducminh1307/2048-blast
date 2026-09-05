@@ -21,10 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Start new game
+  // Start new game (Endless)
   function startNewGame(boardSize = 8) {
     board.setSize(boardSize);
     board.anchorStrategy = 'chain_seeker';
+    ui.setGameMode('endless');
     if (window.analyticsTracker) window.analyticsTracker.reset();
 
     trayManager.refill(board.grid, board.minActiveTier);
@@ -35,6 +36,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close any open modals
     document.getElementById('game-over-modal')?.classList.remove('active');
     document.getElementById('settings-modal')?.classList.remove('active');
+    document.getElementById('level-complete-modal')?.classList.remove('active');
+    document.getElementById('level-failed-modal')?.classList.remove('active');
+    document.getElementById('level-select-modal')?.classList.remove('active');
+  }
+
+  // Start specific level
+  function startLevel(levelNum = 1) {
+    board.loadLevel(levelNum);
+    ui.setGameMode('level');
+    if (window.analyticsTracker) window.analyticsTracker.reset();
+
+    trayManager.refill(board.grid, board.minActiveTier);
+    ui.renderBoard();
+    ui.renderTray();
+    ui.updateStats(true);
+
+    // Close any open modals
+    document.getElementById('game-over-modal')?.classList.remove('active');
+    document.getElementById('settings-modal')?.classList.remove('active');
+    document.getElementById('level-complete-modal')?.classList.remove('active');
+    document.getElementById('level-failed-modal')?.classList.remove('active');
+    document.getElementById('level-select-modal')?.classList.remove('active');
   }
 
   function loadTestPreset(presetId) {
@@ -89,10 +112,64 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsModal?.classList.remove('active');
   }
 
-  // Initial Game Start
+  // Initial Game Start (Endless)
   startNewGame(8);
 
-  // 2. Action Buttons Binding
+  // Mode Switcher Tabs
+  document.getElementById('tab-endless')?.addEventListener('click', () => {
+    if (board.gameMode !== 'endless') {
+      startNewGame(CONFIG.DEFAULT_BOARD_SIZE);
+    }
+  });
+
+  document.getElementById('tab-levels')?.addEventListener('click', () => {
+    if (board.gameMode !== 'level') {
+      startLevel(ui.unlockedLevel || 1);
+    }
+  });
+
+  // Level Select Modal Controls
+  const levelSelectModal = document.getElementById('level-select-modal');
+  document.getElementById('btn-level-select')?.addEventListener('click', () => {
+    ui.renderLevelSelectGrid((lvl) => startLevel(lvl));
+    levelSelectModal?.classList.add('active');
+  });
+
+  document.getElementById('close-level-select-btn')?.addEventListener('click', () => {
+    levelSelectModal?.classList.remove('active');
+  });
+
+  levelSelectModal?.addEventListener('click', (e) => {
+    if (e.target === levelSelectModal) {
+      levelSelectModal.classList.remove('active');
+    }
+  });
+
+  // Level Complete Modal Controls
+  document.getElementById('btn-next-level')?.addEventListener('click', () => {
+    const nextLvl = board.currentLevel + 1;
+    const maxLvl = CONFIG.LEVELS_DATA ? CONFIG.LEVELS_DATA.length : 10;
+    if (nextLvl <= maxLvl) {
+      startLevel(nextLvl);
+    } else {
+      document.getElementById('level-complete-modal')?.classList.remove('active');
+      ui.renderLevelSelectGrid((lvl) => startLevel(lvl));
+      levelSelectModal?.classList.add('active');
+    }
+  });
+
+  // Level Failed Modal Controls
+  document.getElementById('btn-retry-level')?.addEventListener('click', () => {
+    startLevel(board.currentLevel);
+  });
+
+  document.getElementById('btn-failed-level-select')?.addEventListener('click', () => {
+    document.getElementById('level-failed-modal')?.classList.remove('active');
+    ui.renderLevelSelectGrid((lvl) => startLevel(lvl));
+    levelSelectModal?.classList.add('active');
+  });
+
+  // Action Buttons Binding
   document.getElementById('btn-hint')?.addEventListener('click', () => {
     ui.triggerHint();
   });
@@ -104,6 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Settings Modal Controls
   const settingsModal = document.getElementById('settings-modal');
   document.getElementById('btn-settings')?.addEventListener('click', () => {
+    settingsModal?.classList.add('active');
+  });
+
+  document.getElementById('btn-settings-level')?.addEventListener('click', () => {
     settingsModal?.classList.add('active');
   });
 
@@ -129,7 +210,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-modal-restart')?.addEventListener('click', () => {
     settingsModal?.classList.remove('active');
-    startNewGame(8);
+    if (board.gameMode === 'level') {
+      startLevel(board.currentLevel);
+    } else {
+      startNewGame(8);
+    }
   });
 
   document.getElementById('btn-preset-purge')?.addEventListener('click', () => {
@@ -144,12 +229,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTestPreset('preset_booster_2x');
   });
 
-  // Game Over Restart Button
+  // Game Over Restart Button (Endless)
   document.getElementById('btn-gameover-restart')?.addEventListener('click', () => {
     startNewGame(8);
   });
 
   // Expose global game instance for verification & console inspection
-  window.game = { board, trayManager, pieceGenerator, ui, startNewGame, loadTestPreset };
+  window.game = { board, trayManager, pieceGenerator, ui, startNewGame, startLevel, loadTestPreset };
 });
 

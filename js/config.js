@@ -192,3 +192,142 @@ const SHAPE_DEFINITIONS = [
     weight: 4
   }
 ];
+
+// Level Mode Definitions (Target Number & Move Limit)
+const LEVELS_DATA = [
+  {
+    level: 1,
+    title: 'First Milestone',
+    target: 64,
+    moves: 20,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 3, value: 8 },
+      { r: 3, c: 4, value: 8 }
+    ]
+  },
+  {
+    level: 2,
+    title: 'Connecting Paths',
+    target: 128,
+    moves: 22,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 3, value: 4 },
+      { r: 4, c: 4, value: 4 }
+    ]
+  },
+  {
+    level: 3,
+    title: 'The 256 Challenge',
+    target: 256,
+    moves: 25,
+    boardSize: 8,
+    presetTiles: [
+      { r: 2, c: 2, value: 8 },
+      { r: 5, c: 5, value: 8 },
+      { r: 3, c: 4, value: 16 }
+    ]
+  },
+  {
+    level: 4,
+    title: 'Tight Quarters',
+    target: 256,
+    moves: 22,
+    boardSize: 8,
+    presetTiles: [
+      { r: 1, c: 1, value: 4 },
+      { r: 1, c: 6, value: 4 },
+      { r: 6, c: 1, value: 4 },
+      { r: 6, c: 6, value: 4 },
+      { r: 3, c: 3, value: 16 },
+      { r: 4, c: 4, value: 16 }
+    ]
+  },
+  {
+    level: 5,
+    title: 'Milestone 512',
+    target: 512,
+    moves: 28,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 3, value: 128 },
+      { r: 4, c: 4, value: 32 },
+      { r: 2, c: 4, value: 16 }
+    ]
+  },
+  {
+    level: 6,
+    title: 'Boosters Awaken',
+    target: 512,
+    moves: 25,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 2, value: 32, multiplier: 2 },
+      { r: 4, c: 5, value: 64 }
+    ]
+  },
+  {
+    level: 7,
+    title: 'Climbing to 1024',
+    target: 1024,
+    moves: 32,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 3, value: 256 },
+      { r: 4, c: 3, value: 64 },
+      { r: 3, c: 4, value: 32 }
+    ]
+  },
+  {
+    level: 8,
+    title: 'Tactical Precision',
+    target: 1024,
+    moves: 26,
+    boardSize: 8,
+    presetTiles: [
+      { r: 2, c: 2, value: 128 },
+      { r: 5, c: 5, value: 128 }
+    ]
+  },
+  {
+    level: 9,
+    title: 'The 2048 Summit',
+    target: 2048,
+    moves: 38,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 1, value: 512 },
+      { r: 3, c: 6, value: 512 }
+    ]
+  },
+  {
+    level: 10,
+    title: 'Grand Legend 4096',
+    target: 4096,
+    moves: 45,
+    boardSize: 8,
+    presetTiles: [
+      { r: 3, c: 3, value: 1024 },
+      { r: 4, c: 4, value: 512 }
+    ]
+  }
+];
+
+// Helper to get or generate level config
+CONFIG.getLevelData = function(levelNum) {
+  if (levelNum >= 1 && levelNum <= LEVELS_DATA.length) {
+    return LEVELS_DATA[levelNum - 1];
+  }
+  const target = Math.min(8192, 4096 * Math.pow(2, levelNum - 10));
+  const moves = 40 + (levelNum - 10) * 5;
+  return {
+    level: levelNum,
+    title: `Master Stage ${levelNum}`,
+    target,
+    moves,
+    boardSize: 8,
+    presetTiles: []
+  };
+};
+

@@ -16,44 +16,79 @@
 <body>
 
   <div class="app-container">
-    <!-- Header: Block Blast Style (Top Left: High Score, Top Right: Settings, Bottom: Current Score) -->
+    <!-- Mode Switcher Tab Bar -->
+    <div class="mode-tabs-container">
+      <div class="mode-tabs">
+        <button id="tab-endless" class="mode-tab active">♾️ Endless</button>
+        <button id="tab-levels" class="mode-tab">🚩 Levels</button>
+      </div>
+    </div>
+
+    <!-- Header: Block Blast Style & Level Header -->
     <header class="block-blast-header">
-      <div class="header-top-row">
-        <div class="high-score-box">
-          <span class="crown-icon">👑</span>
-          <span id="best-val" class="high-score-val">0</span>
+      <!-- 1. Endless Header View -->
+      <div id="endless-header-view" class="header-view active">
+        <div class="header-top-row">
+          <div class="high-score-box">
+            <span class="crown-icon">👑</span>
+            <span id="best-val" class="high-score-val">0</span>
+          </div>
+          <button id="btn-settings" class="btn-settings" title="Settings" aria-label="Settings">
+            <svg class="settings-gear-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
         </div>
-        <button id="btn-settings" class="btn-settings" title="Settings" aria-label="Settings">
-          <svg class="settings-gear-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-          </svg>
-        </button>
+        <div class="current-score-wrapper">
+          <div id="score-val" class="current-score-val">0</div>
+        </div>
+        <!-- 2248 Style Number Tier Milestone Progress Bar -->
+        <div class="tier-milestone-bar-container" id="tier-milestone-bar">
+          <div class="tier-track-bg">
+            <div class="tier-track-fill" id="tier-track-fill"></div>
+          </div>
+          <div class="tier-node tier-node-min">
+            <div id="tier-tile-min" class="tier-mini-tile">2</div>
+          </div>
+          <div class="tier-node tier-node-current">
+            <span class="tier-crown-icon">👑</span>
+            <div id="tier-tile-current" class="tier-mini-tile tier-tile-crowned">128</div>
+          </div>
+          <div class="tier-node tier-node-goal">
+            <span class="tier-goal-tag">GOAL</span>
+            <div id="tier-tile-goal" class="tier-mini-tile">256</div>
+          </div>
+        </div>
       </div>
-      <div class="current-score-wrapper">
-        <div id="score-val" class="current-score-val">0</div>
-      </div>
-      <!-- 2248 Style Number Tier Milestone Progress Bar -->
-      <div class="tier-milestone-bar-container" id="tier-milestone-bar">
-        <div class="tier-track-bg">
-          <div class="tier-track-fill" id="tier-track-fill"></div>
-        </div>
 
-        <!-- Left Node: Min Active Tier -->
-        <div class="tier-node tier-node-min">
-          <div id="tier-tile-min" class="tier-mini-tile">2</div>
+      <!-- 2. Level Header View -->
+      <div id="level-header-view" class="header-view">
+        <div class="header-top-row">
+          <button id="btn-level-select" class="level-select-trigger" title="Select Level">
+            <span>🚩 Level <span id="level-num-display">1</span></span>
+            <span class="arrow-down">▾</span>
+          </button>
+          <div class="level-target-badge">
+            <span class="target-title">TARGET</span>
+            <div id="level-target-tile" class="level-target-tile">64</div>
+          </div>
+          <button id="btn-settings-level" class="btn-settings" title="Settings" aria-label="Settings">
+            <svg class="settings-gear-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
         </div>
-
-        <!-- Center Node: Current Highest Tier (Crowned) -->
-        <div class="tier-node tier-node-current">
-          <span class="tier-crown-icon">👑</span>
-          <div id="tier-tile-current" class="tier-mini-tile tier-tile-crowned">128</div>
-        </div>
-
-        <!-- Right Node: Next Goal -->
-        <div class="tier-node tier-node-goal">
-          <span class="tier-goal-tag">GOAL</span>
-          <div id="tier-tile-goal" class="tier-mini-tile">256</div>
+        <div class="level-info-row">
+          <div class="level-moves-counter">
+            <span class="moves-icon">⏳</span>
+            <span class="moves-label">Moves:</span>
+            <span id="moves-left-val" class="moves-count">20</span>
+          </div>
+          <div class="level-score-display">
+            Score: <span id="level-score-val">0</span>
+          </div>
         </div>
       </div>
     </header>
@@ -116,7 +151,7 @@
     </div>
   </div>
 
-  <!-- Game Over Modal -->
+  <!-- Game Over Modal (Endless) -->
   <div id="game-over-modal" class="modal-overlay">
     <div class="modal-box" style="text-align: center;">
       <div class="modal-header" style="justify-content: center;">
@@ -133,6 +168,76 @@
       </div>
       <div class="modal-footer" style="justify-content: center;">
         <button id="btn-gameover-restart" class="btn-primary" style="width: 100%;">Play Again 🔄</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Complete Modal -->
+  <div id="level-complete-modal" class="modal-overlay">
+    <div class="modal-box level-win-box" style="text-align: center;">
+      <div class="level-win-badge">🎉 VICTORY!</div>
+      <h2 class="level-win-title">LEVEL COMPLETE</h2>
+      <div id="level-stars-container" class="level-stars-row">
+        <span class="star star-1">⭐</span>
+        <span class="star star-2">⭐</span>
+        <span class="star star-3">⭐</span>
+      </div>
+      <div class="level-win-target-info">
+        Target <span id="win-target-number" class="highlight-target">64</span> Reached!
+      </div>
+      <div class="level-win-stats">
+        <div class="win-stat-col">
+          <div class="win-stat-label">Moves Left</div>
+          <div id="win-moves-left" class="win-stat-val">12</div>
+        </div>
+        <div class="win-stat-col">
+          <div class="win-stat-label">Level Score</div>
+          <div id="win-level-score" class="win-stat-val">1,240</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 14px;">
+        <button id="btn-next-level" class="btn-primary" style="width: 100%;">Next Level ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Failed Modal -->
+  <div id="level-failed-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center;">
+      <div class="modal-header" style="justify-content: center;">
+        <h2 class="modal-title" style="color: #ef4444; font-size: 1.4rem;">Level Failed</h2>
+      </div>
+      <div class="modal-body">
+        <p id="fail-reason-text" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 12px;">
+          You ran out of moves before reaching the target!
+        </p>
+        <div class="level-target-badge" style="display: inline-flex; margin-bottom: 12px;">
+          <span class="target-title">TARGET WAS</span>
+          <div id="fail-target-val" class="level-target-tile" style="margin: 0 auto;">64</div>
+        </div>
+        <div style="margin: 8px 0;">
+          <div class="stat-label">Score</div>
+          <div id="failed-score-val" style="font-size: 1.8rem; font-weight: 800; color: var(--accent-gold);">0</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="flex-direction: column; gap: 8px;">
+        <button id="btn-retry-level" class="btn-primary" style="width: 100%;">Try Again 🔄</button>
+        <button id="btn-failed-level-select" class="btn-secondary" style="width: 100%;">Select Level 📋</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Select Modal -->
+  <div id="level-select-modal" class="modal-overlay">
+    <div class="modal-box level-select-modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title">Select Level</h2>
+        <button id="close-level-select-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="level-selection-grid" class="level-selection-grid">
+          <!-- 10 Level buttons generated dynamically -->
+        </div>
       </div>
     </div>
   </div>

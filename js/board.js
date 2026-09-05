@@ -11,6 +11,16 @@ class Board {
     this.isResolving = false;
     this.history = [];
     this.anchorStrategy = 'chain_seeker'; // 'chain_seeker' (Smart Chain) or 'classic' (Section 10)
+    
+    // Mode & Level State
+    this.gameMode = 'endless'; // 'endless' or 'level'
+    this.currentLevel = 1;
+    this.targetNumber = 64;
+    this.movesLeft = 20;
+    this.maxMoves = 20;
+    this.isLevelWon = false;
+    this.isLevelFailed = false;
+
     this.initGrid();
     this.initTierState();
   }
@@ -22,11 +32,56 @@ class Board {
     this.highestUnlockedValue = 2; // Dynamic: real current highest number achieved
   }
 
+  loadLevel(levelNum = 1) {
+    const levelData = CONFIG.getLevelData(levelNum);
+    this.gameMode = 'level';
+    this.currentLevel = levelData.level;
+    this.targetNumber = levelData.target;
+    this.maxMoves = levelData.moves;
+    this.movesLeft = levelData.moves;
+    this.isLevelWon = false;
+    this.isLevelFailed = false;
+
+    this.size = levelData.boardSize || CONFIG.DEFAULT_BOARD_SIZE;
+    this.initGrid();
+    this.initTierState();
+    this.score = 0;
+    this.history = [];
+
+    // Load preset tiles for this level
+    if (levelData.presetTiles && levelData.presetTiles.length > 0) {
+      for (const pt of levelData.presetTiles) {
+        if (this.inBounds(pt.r, pt.c)) {
+          this.grid[pt.r][pt.c] = {
+            value: pt.value,
+            id: 'tile_' + Math.random().toString(36).substr(2, 7),
+            isWildcard: !!pt.isWildcard,
+            multiplier: pt.multiplier || 1
+          };
+        }
+      }
+    }
+
+    const maxVal = this.getHighestValueOnBoard();
+    if (maxVal > this.highestUnlockedValue) {
+      this.highestUnlockedValue = maxVal;
+      this.highestUnlockedTier = CONFIG.getTierFromValue ? CONFIG.getTierFromValue(maxVal) : 0;
+    }
+  }
+
+  calculateLevelStars() {
+    if (!this.isLevelWon) return 0;
+    const ratio = this.movesLeft / this.maxMoves;
+    if (ratio >= 0.35) return 3;
+    if (ratio >= 0.15) return 2;
+    return 1;
+  }
+
   getHighestValueOnBoard() {
     let maxVal = 2;
     for (let r = 0; r < this.size; r++) {
       for (let c = 0; c < this.size; c++) {
-        if (this.grid[r][c] && this.grid[r][c].value > maxVal) {
+        if (this.grid[r][c] && typeof this.grid[r][c].value === 'number' && this.grid[r][c].value > maxVal) {
           maxVal = this.grid[r][c].value;
         }
       }
@@ -63,7 +118,10 @@ class Board {
       score: this.score,
       minActiveTier: this.minActiveTier,
       highestUnlockedTier: this.highestUnlockedTier,
-      highestUnlockedValue: this.highestUnlockedValue
+      highestUnlockedValue: this.highestUnlockedValue,
+      movesLeft: this.movesLeft,
+      isLevelWon: this.isLevelWon,
+      isLevelFailed: this.isLevelFailed
     });
     if (this.history.length > 20) {
       this.history.shift();
@@ -79,6 +137,11 @@ class Board {
         this.minActiveTier = snapshot.minActiveTier;
         this.highestUnlockedTier = snapshot.highestUnlockedTier;
         this.highestUnlockedValue = snapshot.highestUnlockedValue;
+      }
+      if (snapshot.movesLeft !== undefined) {
+        this.movesLeft = snapshot.movesLeft;
+        this.isLevelWon = snapshot.isLevelWon;
+        this.isLevelFailed = snapshot.isLevelFailed;
       }
       return true;
     }
@@ -576,6 +639,10 @@ class Board {
     this.isResolving = true;
     this.saveSnapshot();
 
+    if (this.gameMode === 'level') {
+      this.movesLeft = Math.max(0, this.movesLeft - 1);
+    }
+
     const delayMs = CONFIG.ANIMATION_SPEEDS[animSpeed] || CONFIG.ANIMATION_SPEEDS.normal;
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -800,6 +867,37 @@ class Board {
               });
             }
           }
+        }
+      }
+    }
+
+    // Step 4: Level Mode Win / Loss Evaluation
+    if (this.gameMode === 'level') {
+      const highestOnBoard = this.getHighestValueOnBoard();
+      if (!this.isLevelWon && highestOnBoard >= this.targetNumber) {
+        this.isLevelWon = true;
+        if (onStep) {
+          await onStep({
+            phase: 'level_won',
+            level: this.currentLevel,
+            targetNumber: this.targetNumber,
+            highestAchieved: highestOnBoard,
+            movesLeft: this.movesLeft,
+            maxMoves: this.maxMoves,
+            stars: this.calculateLevelStars(),
+            score: this.score
+          });
+        }
+      } else if (!this.isLevelWon && this.movesLeft <= 0) {
+        this.isLevelFailed = true;
+        if (onStep) {
+          await onStep({
+            phase: 'level_failed',
+            level: this.currentLevel,
+            targetNumber: this.targetNumber,
+            reason: 'out_of_moves',
+            score: this.score
+          });
         }
       }
     }

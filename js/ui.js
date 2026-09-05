@@ -17,6 +17,27 @@ class UIManager {
     this.occupancyValEl = document.getElementById('occupancy-val');
     this.floatingContainer = document.getElementById('floating-container');
 
+    // Level Mode Elements & Persistence State
+    this.unlockedLevel = parseInt(localStorage.getItem('mpp_level_unlocked') || '1', 10);
+    try {
+      this.levelStars = JSON.parse(localStorage.getItem('mpp_level_stars') || '{}');
+    } catch (e) {
+      this.levelStars = {};
+    }
+
+    this.tabEndless = document.getElementById('tab-endless');
+    this.tabLevels = document.getElementById('tab-levels');
+    this.endlessHeaderView = document.getElementById('endless-header-view');
+    this.levelHeaderView = document.getElementById('level-header-view');
+    this.levelNumDisplay = document.getElementById('level-num-display');
+    this.levelTargetTile = document.getElementById('level-target-tile');
+    this.movesLeftVal = document.getElementById('moves-left-val');
+    this.levelScoreVal = document.getElementById('level-score-val');
+    this.levelCompleteModal = document.getElementById('level-complete-modal');
+    this.levelFailedModal = document.getElementById('level-failed-modal');
+    this.levelSelectModal = document.getElementById('level-select-modal');
+    this.levelSelectionGrid = document.getElementById('level-selection-grid');
+
     // High Score & Score Rolling Animation state
     this.bestScore = parseInt(localStorage.getItem('mpp_best_score') || '0', 10);
     this.displayedScore = 0;
@@ -558,7 +579,19 @@ class UIManager {
       // Check Game Over (Section 19)
       const isOver = this.board.checkGameOver(this.trayManager.pieces);
       if (isOver) {
-        this.triggerGameOver();
+        if (this.board.gameMode === 'level') {
+          if (!this.board.isLevelWon) {
+            this.board.isLevelFailed = true;
+            this.showLevelFailedModal({
+              level: this.board.currentLevel,
+              targetNumber: this.board.targetNumber,
+              reason: 'no_moves',
+              score: this.board.score
+            });
+          }
+        } else {
+          this.triggerGameOver();
+        }
       }
     }
   }
@@ -832,6 +865,23 @@ class UIManager {
       this.renderBoard();
       this.updateStats();
       this.updateTierHUD();
+    } else if (stepInfo.phase === 'level_won') {
+      // Save level progression
+      if (stepInfo.stars > (this.levelStars[stepInfo.level] || 0)) {
+        this.levelStars[stepInfo.level] = stepInfo.stars;
+        try {
+          localStorage.setItem('mpp_level_stars', JSON.stringify(this.levelStars));
+        } catch (e) {}
+      }
+      if (stepInfo.level >= this.unlockedLevel && stepInfo.level < (CONFIG.LEVELS_DATA ? CONFIG.LEVELS_DATA.length : 10)) {
+        this.unlockedLevel = stepInfo.level + 1;
+        try {
+          localStorage.setItem('mpp_level_unlocked', this.unlockedLevel.toString());
+        } catch (e) {}
+      }
+      this.showLevelCompleteModal(stepInfo);
+    } else if (stepInfo.phase === 'level_failed') {
+      this.showLevelFailedModal(stepInfo);
     }
   }
 
@@ -1049,6 +1099,20 @@ class UIManager {
       if (this.occupancyValEl) this.occupancyValEl.textContent = metrics.currentOccupancy;
     }
 
+    if (this.board.gameMode === 'level') {
+      if (this.levelNumDisplay) this.levelNumDisplay.textContent = this.board.currentLevel;
+      if (this.movesLeftVal) {
+        this.movesLeftVal.textContent = this.board.movesLeft;
+        this.movesLeftVal.classList.toggle('moves-low', this.board.movesLeft <= 5);
+      }
+      if (this.levelScoreVal) {
+        this.levelScoreVal.textContent = this.board.score.toLocaleString();
+      }
+      if (this.levelTargetTile) {
+        this.styleMiniTile(this.levelTargetTile, this.board.targetNumber);
+      }
+    }
+
     this.updateTierHUD();
   }
 
@@ -1161,5 +1225,126 @@ class UIManager {
     finalScoreEl.textContent = this.board.score.toLocaleString();
 
     modal.classList.add('active');
+  }
+
+  setGameMode(mode) {
+    this.board.gameMode = mode;
+    if (mode === 'level') {
+      this.tabEndless?.classList.remove('active');
+      this.tabLevels?.classList.add('active');
+      this.endlessHeaderView?.classList.remove('active');
+      this.levelHeaderView?.classList.add('active');
+    } else {
+      this.tabEndless?.classList.add('active');
+      this.tabLevels?.classList.remove('active');
+      this.endlessHeaderView?.classList.add('active');
+      this.levelHeaderView?.classList.remove('active');
+    }
+    this.updateStats(true);
+  }
+
+  showLevelCompleteModal(info) {
+    if (window.soundSystem && window.soundSystem.playTierUnlock) {
+      window.soundSystem.playTierUnlock();
+    }
+
+    const targetEl = document.getElementById('win-target-number');
+    if (targetEl) targetEl.textContent = info.targetNumber;
+
+    const movesEl = document.getElementById('win-moves-left');
+    if (movesEl) movesEl.textContent = info.movesLeft;
+
+    const scoreEl = document.getElementById('win-level-score');
+    if (scoreEl) scoreEl.textContent = (info.score || 0).toLocaleString();
+
+    // Reset stars visual & trigger staggered pop
+    const starsContainer = document.getElementById('level-stars-container');
+    if (starsContainer) {
+      const stars = starsContainer.querySelectorAll('.star');
+      stars.forEach(s => s.classList.remove('earned'));
+
+      const earnedCount = info.stars || 1;
+      stars.forEach((star, idx) => {
+        if (idx < earnedCount) {
+          setTimeout(() => {
+            star.classList.add('earned');
+            if (window.soundSystem && window.soundSystem.playPick) {
+              window.soundSystem.playPick();
+            }
+          }, 300 + idx * 260);
+        }
+      });
+    }
+
+    if (this.levelCompleteModal) {
+      this.levelCompleteModal.classList.add('active');
+    }
+  }
+
+  showLevelFailedModal(info) {
+    if (window.soundSystem && window.soundSystem.playGameOver) {
+      window.soundSystem.playGameOver();
+    }
+
+    const targetEl = document.getElementById('fail-target-val');
+    if (targetEl) {
+      targetEl.textContent = info.targetNumber;
+      this.styleMiniTile(targetEl, info.targetNumber);
+    }
+
+    const scoreEl = document.getElementById('failed-score-val');
+    if (scoreEl) scoreEl.textContent = (info.score || 0).toLocaleString();
+
+    const reasonEl = document.getElementById('fail-reason-text');
+    if (reasonEl) {
+      if (info.reason === 'no_moves') {
+        reasonEl.textContent = 'None of the pieces in your tray can fit on the board!';
+      } else {
+        reasonEl.textContent = 'You ran out of moves before reaching the target!';
+      }
+    }
+
+    if (this.levelFailedModal) {
+      this.levelFailedModal.classList.add('active');
+    }
+  }
+
+  renderLevelSelectGrid(onSelectLevel) {
+    if (!this.levelSelectionGrid) return;
+    this.levelSelectionGrid.innerHTML = '';
+
+    const levels = CONFIG.LEVELS_DATA || [];
+    levels.forEach(lvl => {
+      const isLocked = lvl.level > this.unlockedLevel;
+      const isActive = this.board.gameMode === 'level' && this.board.currentLevel === lvl.level;
+      const stars = this.levelStars[lvl.level] || 0;
+
+      const card = document.createElement('div');
+      card.className = `level-card ${isLocked ? 'locked' : ''} ${isActive ? 'active-level' : ''}`.trim();
+
+      let starDisplay = '';
+      if (isLocked) {
+        starDisplay = '🔒';
+      } else {
+        starDisplay = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+      }
+
+      card.innerHTML = `
+        <div class="level-card-num">${lvl.level}</div>
+        <div class="level-card-target">🎯 ${lvl.target}</div>
+        <div class="level-card-stars">${starDisplay}</div>
+      `;
+
+      if (!isLocked) {
+        card.addEventListener('click', () => {
+          if (this.levelSelectModal) this.levelSelectModal.classList.remove('active');
+          if (typeof onSelectLevel === 'function') {
+            onSelectLevel(lvl.level);
+          }
+        });
+      }
+
+      this.levelSelectionGrid.appendChild(card);
+    });
   }
 }
